@@ -24,7 +24,6 @@ const listings = require("./routes/listings.js");
 const reviews = require("./routes/review.js");
 const { error } = require('console');
 
-// const MONGO_URL = "mongodb://127.0.0.1:27017/wanderlust";
 const dburl =process.env.ATLAS_URL;
 
 main()
@@ -36,7 +35,23 @@ main()
   });
 
 async function main() {
-  await mongoose.connect(dburl);
+  try {
+    await mongoose.connect(dburl, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      ssl: true,
+      tlsAllowInvalidCertificates: false,
+      retryWrites: true,
+      w: 'majority'
+    });
+  } catch (err) {
+    console.error("MongoDB connection error:", err.message);
+    console.log("\nTroubleshooting tips:");
+    console.log("1. Check if your IP is whitelisted in MongoDB Atlas");
+    console.log("2. Verify your connection string format");
+    console.log("3. Ensure your MongoDB Atlas cluster is running");
+    process.exit(1);
+  }
 }
 
 app.set("view engine", "ejs");
@@ -50,10 +65,16 @@ app.use(express.static(path.join(__dirname, "/public")));
 
 const store = MongoStore.create({
   mongoUrl: dburl,
-  crypto:{
-    secret: "mysecretcode",  
+  mongoOptions: {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+    ssl: true,
+    tlsAllowInvalidCertificates: false
   },
-touchAfter : 24 * 3600,
+  crypto: {
+    secret: process.env.SECRET,
+  },
+  touchAfter: 24 * 3600,
 });
 
 store.on("error",() =>{
@@ -62,7 +83,7 @@ store.on("error",() =>{
 
 const sessionOptions = {
   store,
-  secret: "mysecretcode",
+  secret: process.env.SECRET, 
   resave: false,
   saveUninitialized: true,
   cookie: {
@@ -102,7 +123,7 @@ app.use((err, req, res, next) => {
   res.render('error', { message: err.message, error: err });
 });
 
-const port = process.env.PORT || 8080;
-app.listen(port, () => {
-  console.log(`Server is running on http://localhost:${port}`);
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, () => {
+  console.log(`Server is running on http://localhost:${PORT}`);
 });
